@@ -11,7 +11,15 @@
         public virtual List<Bike>? Bikes { get; set; }
         public ShopStatus Status { get; set; }
 
-        public Bike FindBikeById(int id)
+        public string RideLogSignature { get; set; } 
+
+        public string BikeTrickSignature { get; set; }
+
+        public RideLog RideLog => RideLog.Parse(RideLogSignature);
+
+        public BikeTrickSequence BikeTrickSequence => BikeTrickSequence.Parse(BikeTrickSignature);
+
+        public Bike? FindBikeById(int id)
         {
             return Bikes?.Find(b => b.Id == id);
         }

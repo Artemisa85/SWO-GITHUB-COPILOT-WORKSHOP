@@ -2,60 +2,105 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-public class Trick
+namespace BikeShopAPI.Entities
 {
-    public string Action { get; set; }
-    public int RepetitionCount { get; set; }
-    public char DifficultyModifier { get; set; }
-    public double Score { get; set; }
-}
-
-public class BikeTrickSequence
-{
-    public List<Trick> Tricks { get; set; } = new List<Trick>();
-    public double Difficulty { get; set; }
-
-    public static BikeTrickSequence Parse(string sequence)
+    public class BikeTrickSequence
     {
-        var bikeTrickSequence = new BikeTrickSequence();
-        var tricks = Regex.Matches(sequence, @"[A-Z]\d+[A-E]");
+        public List<Trick> Tricks { get; set; } = new List<Trick>();
+        public double Difficulty { get; set; }
 
-        foreach (Match trick in tricks)
+        public static BikeTrickSequence Parse(string bikeTrickSignature)
         {
-            var action = trick.Value[0].ToString();
-            var repetitionCount = int.Parse(trick.Value.Substring(1, trick.Value.Length - 2));
-            var difficultyModifier = trick.Value[^1];
+            var bikeTrickSequence = new BikeTrickSequence();
+            
+            // Regex pattern to match trick format: Letter + Number + Letter (e.g., L4B, H2C, R3A)
+            var trickPattern = @"([LHRST])(\d+)([A-E])";
+            var tricks = Regex.Matches(bikeTrickSignature, trickPattern);
 
-            var score = CalculateScore(action, repetitionCount, difficultyModifier, bikeTrickSequence);
-            bikeTrickSequence.Tricks.Add(new Trick { Action = action, RepetitionCount = repetitionCount, DifficultyModifier = difficultyModifier, Score = score });
-            bikeTrickSequence.Difficulty += score;
+            foreach (Match trickMatch in tricks)
+            {
+                var actionLetter = trickMatch.Groups[1].Value;
+                var repetitionCount = int.Parse(trickMatch.Groups[2].Value);
+                var difficultyModifier = trickMatch.Groups[3].Value[0];
+
+                var trick = new Trick
+                {
+                    ActionLetter = actionLetter,
+                    Action = GetActionName(actionLetter),
+                    RepetitionCount = repetitionCount,
+                    DifficultyModifier = difficultyModifier
+                };
+
+                var score = CalculateScore(trick, bikeTrickSequence);
+                trick.Score = score;
+                
+                bikeTrickSequence.Tricks.Add(trick);
+                bikeTrickSequence.Difficulty += score;
+            }
+
+            bikeTrickSequence.Difficulty = Math.Round(bikeTrickSequence.Difficulty, 2);
+            return bikeTrickSequence;
         }
 
-        bikeTrickSequence.Difficulty = Math.Round(bikeTrickSequence.Difficulty, 2);
-        return bikeTrickSequence;
-    }
-
-    private static double CalculateScore(string action, int repetitionCount, char difficultyModifier, BikeTrickSequence bikeTrickSequence)
-    {
-        var difficulty = difficultyModifier switch
+        private static string GetActionName(string actionLetter)
         {
-            'A' => 1.0,
-            'B' => 1.2,
-            'C' => 1.4,
-            'D' => 1.6,
-            'E' => 1.8,
-            _ => throw new Exception("Invalid difficulty modifier")
-        };
-
-        var score = repetitionCount * difficulty;
-
-        if (bikeTrickSequence.Tricks.Count > 0)
-        {
-            var lastAction = bikeTrickSequence.Tricks[^1].Action;
-            if (lastAction == "L" && action == "R") score *= 2;
-            if (lastAction == "T" && action == "S") score *= 3;
+            return actionLetter switch
+            {
+                "L" => "360",
+                "H" => "Tuck No-Hander",
+                "R" => "Cash Roll",
+                "S" => "Barspin",
+                "T" => "Table",
+                _ => throw new ArgumentException($"Unknown action letter: {actionLetter}")
+            };
         }
 
-        return score;
+        private static double GetDifficultyMultiplier(char difficultyModifier)
+        {
+            return difficultyModifier switch
+            {
+                'A' => 1.0,
+                'B' => 1.2,
+                'C' => 1.4,
+                'D' => 1.6,
+                'E' => 1.8,
+                _ => throw new ArgumentException($"Invalid difficulty modifier: {difficultyModifier}")
+            };
+        }
+
+        private static double CalculateScore(Trick currentTrick, BikeTrickSequence sequence)
+        {
+            var baseScore = currentTrick.RepetitionCount * GetDifficultyMultiplier(currentTrick.DifficultyModifier);
+            var multiplier = 1.0;
+
+            // Apply special scoring rules
+            if (sequence.Tricks.Count > 0)
+            {
+                var previousTrick = sequence.Tricks[^1];
+                
+                // A Cash Roll after a 360 is scored double
+                if (previousTrick.ActionLetter == "L" && currentTrick.ActionLetter == "R")
+                {
+                    multiplier = 2.0;
+                }
+                
+                // A Barspin after a Table is scored triple
+                if (previousTrick.ActionLetter == "T" && currentTrick.ActionLetter == "S")
+                {
+                    multiplier = 3.0;
+                }
+            }
+
+            return baseScore * multiplier;
+        }
+
+        public class Trick
+        {
+            public string ActionLetter { get; set; } = string.Empty;
+            public string Action { get; set; } = string.Empty;
+            public int RepetitionCount { get; set; }
+            public char DifficultyModifier { get; set; }
+            public double Score { get; set; }
+        }
     }
 }
