@@ -11,6 +11,8 @@
         public int RearTravel { get; set; }
         public int WaterInBidon { get; set; }
 
+        public string? ImageUrl { get; set; }
+
         public int ShopId { get; set; }
         public virtual BikeShop? BikeShop { get; set; }
     }
